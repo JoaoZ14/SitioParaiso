@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Leaf, Menu, X, LogOut } from 'lucide-react';
+import { Leaf, Menu, X, LogOut, Target } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const links = [
@@ -11,6 +12,7 @@ const links = [
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -32,7 +34,11 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="#" className={`flex items-center gap-2 font-serif font-bold text-xl ${logoColor} transition-colors duration-300`}>
+          <a
+            href="#"
+            onClick={e => { e.preventDefault(); navigate('/hub'); }}
+            className={`flex items-center gap-2 font-serif font-bold text-xl ${logoColor} transition-colors duration-300`}
+          >
             <Leaf className="w-5 h-5" />
             Sítio Paraíso
           </a>
@@ -48,6 +54,13 @@ export default function Navbar() {
                 {l.label}
               </a>
             ))}
+            <button
+              onClick={() => navigate('/app/metas')}
+              className={`flex items-center gap-1.5 text-sm font-medium ${textColor} hover:text-[#4a7c59] transition-colors duration-200`}
+            >
+              <Target className="w-3.5 h-3.5" />
+              Metas
+            </button>
           </div>
 
           {/* Desktop User */}
@@ -97,6 +110,12 @@ export default function Navbar() {
                 {l.label}
               </a>
             ))}
+            <button
+              onClick={() => { navigate('/app/metas'); setOpen(false); }}
+              className="flex items-center gap-2 text-[#5c3d1e] font-medium py-2.5 px-3 rounded-lg hover:bg-[#f5ead0] transition-colors text-left"
+            >
+              <Target className="w-4 h-4 text-[#4a7c59]" /> Metas Gerais
+            </button>
             <div className="border-t border-[#e8d5b0] pt-3 mt-1">
               <div className="flex items-center gap-2 px-3 py-2 mb-1">
                 <div className="w-7 h-7 rounded-full bg-[#4a7c59] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">

@@ -1,14 +1,15 @@
 import { useState, useRef, useCallback } from 'react';
 import {
   X, ChevronLeft, ChevronRight, ZoomIn, Upload,
-  Trash2, ImagePlus, Loader2, AlertCircle, Images,
+  Trash2, ImagePlus, Loader2, AlertCircle, Images, Play, Film,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useGallery } from '../../hooks/useGallery';
 import type { GalleryImage } from '../../hooks/useGallery';
 
-const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif';
-const MAX_MB = 8;
+const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,video/avi';
+const MAX_IMAGE_MB = 8;
+const MAX_VIDEO_MB = 200;
 
 export default function Gallery() {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ export default function Gallery() {
   const [showUpload, setShowUpload] = useState(false);
   const [caption, setCaption] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<'image' | 'video'>('image');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -37,15 +39,18 @@ export default function Gallery() {
   /* ── Upload ── */
   const handleFileChange = (file: File | null) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return;
-    if (file.size > MAX_MB * 1024 * 1024) {
-      alert(`A imagem deve ter no máximo ${MAX_MB}MB.`);
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    if (!isImage && !isVideo) return;
+    const maxMB = isVideo ? MAX_VIDEO_MB : MAX_IMAGE_MB;
+    if (file.size > maxMB * 1024 * 1024) {
+      alert(`O arquivo deve ter no máximo ${maxMB}MB.`);
       return;
     }
     setSelectedFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
-    reader.readAsDataURL(file);
+    setPreviewType(isVideo ? 'video' : 'image');
+    const objectUrl = URL.createObjectURL(file);
+    setPreview(objectUrl);
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -65,8 +70,10 @@ export default function Gallery() {
   };
 
   const cancelUpload = () => {
+    if (preview) URL.revokeObjectURL(preview);
     setSelectedFile(null);
     setPreview(null);
+    setPreviewType('image');
     setCaption('');
     setShowUpload(false);
   };
@@ -109,7 +116,7 @@ export default function Gallery() {
           >
             <div className="flex items-center justify-between">
               <h3 className="font-serif font-bold text-[#5c3d1e] text-base flex items-center gap-2">
-                <ImagePlus className="w-4 h-4 text-[#4a7c59]" /> Adicionar imagem
+                <ImagePlus className="w-4 h-4 text-[#4a7c59]" /> Adicionar mídia
               </h3>
               <button type="button" onClick={cancelUpload} className="p-1 text-[#8a7a66] hover:text-[#5c3d1e]">
                 <X className="w-4 h-4" />
@@ -130,7 +137,17 @@ export default function Gallery() {
             >
               {preview ? (
                 <div className="relative">
-                  <img src={preview} alt="Preview" className="w-full max-h-64 object-cover rounded-2xl" />
+                  {previewType === 'video' ? (
+                    <video
+                      src={preview}
+                      className="w-full max-h-64 object-cover rounded-2xl"
+                      muted
+                      playsInline
+                      controls
+                    />
+                  ) : (
+                    <img src={preview} alt="Preview" className="w-full max-h-64 object-cover rounded-2xl" />
+                  )}
                   <div className="absolute inset-0 bg-black/20 rounded-2xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                     <p className="text-white text-sm font-medium">Clique para trocar</p>
                   </div>
@@ -139,8 +156,9 @@ export default function Gallery() {
                 <div className="py-12 flex flex-col items-center gap-3 text-[#c9b48a]">
                   <Upload className="w-10 h-10" />
                   <div className="text-center">
-                    <p className="text-sm font-medium text-[#8a7a66]">Arraste a imagem ou clique para escolher</p>
-                    <p className="text-xs mt-1">JPG, PNG, WEBP — máx. {MAX_MB}MB</p>
+                    <p className="text-sm font-medium text-[#8a7a66]">Arraste o arquivo ou clique para escolher</p>
+                    <p className="text-xs mt-1">Imagem: JPG, PNG, WEBP — máx. {MAX_IMAGE_MB}MB</p>
+                    <p className="text-xs">Vídeo: MP4, WEBM, MOV — máx. {MAX_VIDEO_MB}MB</p>
                   </div>
                 </div>
               )}
@@ -177,7 +195,7 @@ export default function Gallery() {
               >
                 {uploading
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
-                  : <><Upload className="w-4 h-4" /> Enviar imagem</>
+                  : <><Upload className="w-4 h-4" /> Enviar {previewType === 'video' ? 'vídeo' : 'imagem'}</>
                 }
               </button>
             </div>
@@ -191,7 +209,7 @@ export default function Gallery() {
               onClick={() => setShowUpload(true)}
               className="btn-primary flex items-center gap-2"
             >
-              <ImagePlus className="w-4 h-4" /> Adicionar imagem
+              <ImagePlus className="w-4 h-4" /> Adicionar mídia
             </button>
           </div>
         )}
@@ -219,15 +237,32 @@ export default function Gallery() {
                 key={img.id}
                 className="group relative rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02] break-inside-avoid mb-3 sm:mb-4"
               >
-                <img
-                  src={img.url}
-                  alt={img.caption || 'Inspiração do sítio'}
-                  className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
+                {img.media_type === 'video' ? (
+                  <video
+                    src={img.url}
+                    className="w-full h-auto block"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={img.url}
+                    alt={img.caption || 'Inspiração do sítio'}
+                    className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                )}
 
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                {/* Badge de vídeo */}
+                {img.media_type === 'video' && (
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    <Film className="w-3 h-3" /> Vídeo
+                  </div>
+                )}
 
                 {/* Caption */}
                 {img.caption && (
@@ -242,7 +277,7 @@ export default function Gallery() {
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmDelete(img.id); }}
                       className="p-2 md:p-1.5 bg-black/60 hover:bg-red-500 active:bg-red-500 text-white rounded-lg transition-colors backdrop-blur-sm"
-                      aria-label="Excluir imagem"
+                      aria-label="Excluir"
                     >
                       <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                     </button>
@@ -250,9 +285,12 @@ export default function Gallery() {
                   <button
                     onClick={() => openLightbox(idx)}
                     className="p-2 md:p-1.5 bg-black/60 hover:bg-white/30 active:bg-white/30 text-white rounded-lg transition-colors backdrop-blur-sm"
-                    aria-label="Ampliar imagem"
+                    aria-label={img.media_type === 'video' ? 'Reproduzir vídeo' : 'Ampliar imagem'}
                   >
-                    <ZoomIn className="w-4 h-4 md:w-3.5 md:h-3.5" />
+                    {img.media_type === 'video'
+                      ? <Play className="w-4 h-4 md:w-3.5 md:h-3.5" />
+                      : <ZoomIn className="w-4 h-4 md:w-3.5 md:h-3.5" />
+                    }
                   </button>
                 </div>
 
@@ -262,7 +300,9 @@ export default function Gallery() {
                     className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 p-4"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <p className="text-white text-sm font-semibold text-center">Excluir esta imagem?</p>
+                    <p className="text-white text-sm font-semibold text-center">
+                      Excluir {img.media_type === 'video' ? 'este vídeo' : 'esta imagem'}?
+                    </p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setConfirmDelete(null)}
@@ -284,9 +324,14 @@ export default function Gallery() {
           </div>
         )}
 
-        <p className="text-center text-xs text-[#c9b48a] mt-6">
-          {images.length > 0 && `${images.length} imagem${images.length !== 1 ? 'ns' : ''} na galeria`}
-        </p>
+        {images.length > 0 && (() => {
+          const imgCount = images.filter((i) => i.media_type === 'image').length;
+          const vidCount = images.filter((i) => i.media_type === 'video').length;
+          const parts = [];
+          if (imgCount > 0) parts.push(`${imgCount} imagem${imgCount !== 1 ? 'ns' : ''}`);
+          if (vidCount > 0) parts.push(`${vidCount} vídeo${vidCount !== 1 ? 's' : ''}`);
+          return <p className="text-center text-xs text-[#c9b48a] mt-6">{parts.join(' · ')} na galeria</p>;
+        })()}
       </div>
 
       {/* Lightbox */}
@@ -328,11 +373,21 @@ export default function Gallery() {
           )}
 
           <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={images[lightboxIdx].url}
-              alt={images[lightboxIdx].caption || 'Inspiração'}
-              className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl"
-            />
+            {images[lightboxIdx].media_type === 'video' ? (
+              <video
+                key={images[lightboxIdx].url}
+                src={images[lightboxIdx].url}
+                controls
+                autoPlay
+                className="w-full max-h-[80vh] rounded-xl shadow-2xl bg-black"
+              />
+            ) : (
+              <img
+                src={images[lightboxIdx].url}
+                alt={images[lightboxIdx].caption || 'Inspiração'}
+                className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl"
+              />
+            )}
             {images[lightboxIdx].caption && (
               <p className="text-white/80 text-center text-sm mt-3 font-medium">
                 {images[lightboxIdx].caption}

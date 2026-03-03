@@ -8,6 +8,14 @@ export interface GalleryImage {
   caption: string;
   created_at: string;
   url: string;
+  media_type: 'image' | 'video';
+}
+
+const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
+
+function getMediaType(path: string): 'image' | 'video' {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  return VIDEO_EXTS.includes(ext) ? 'video' : 'image';
 }
 
 export function useGallery() {
@@ -45,6 +53,7 @@ export function useGallery() {
       (data ?? []).map(async (row) => ({
         ...row,
         url: await getSignedUrl(row.storage_path),
+        media_type: getMediaType(row.storage_path),
       }))
     );
 
@@ -88,7 +97,7 @@ export function useGallery() {
     }
 
     const url = await getSignedUrl(filename);
-    setImages((prev) => [{ ...dbData, url }, ...prev]);
+    setImages((prev) => [{ ...dbData, url, media_type: getMediaType(filename) }, ...prev]);
     setUploading(false);
   };
 
